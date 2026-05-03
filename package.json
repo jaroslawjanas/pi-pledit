@@ -1,0 +1,11 @@
+{
+  "name": "pi-pledit",
+  "version": "1.0.0",
+  "description": "Plan mode and Accept-Edits mode for Pi, inspired by Claude Code.",
+  "license": "MIT",
+  "keywords": ["pi", "pi-extension", "plan-mode", "accept-edits", "claude-code"],
+  "author": "",
+  "pi": {
+    "extensions": ["./index.ts"]
+  }
+}
