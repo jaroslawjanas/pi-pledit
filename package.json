@@ -4,7 +4,16 @@
   "description": "Plan mode and Accept-Edits mode for Pi, inspired by Claude Code.",
   "license": "MIT",
   "keywords": ["pi", "pi-extension", "pi-package", "plan-mode", "accept-edits", "claude-code"],
-  "author": "",
+  "author": "jaroslawjanas",
+  "files": ["index.ts", "README.md", "package.json"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaroslawjanas/pi-pledit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jaroslawjanas/pi-pledit/issues"
+  },
+  "homepage": "https://github.com/jaroslawjanas/pi-pledit#readme",
   "pi": {
     "extensions": ["./index.ts"]
   }
