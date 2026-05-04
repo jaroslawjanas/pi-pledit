@@ -137,6 +137,13 @@ function persistMode(pi: ExtensionAPI, mode: Mode) {
   pi.appendEntry("pledit-mode", { mode, timestamp: Date.now() });
 }
 
+function isPlanFilePath(filePath: string, cwd: string): boolean {
+  const resolved = path.resolve(cwd, filePath);
+  const plansDir = path.resolve(cwd, ".pi", "plans");
+  const rel = path.relative(plansDir, resolved);
+  return !rel.startsWith("..") && !path.isAbsolute(rel) && resolved.endsWith(".md");
+}
+
 function generatePlanFilename(): string {
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   return `plan-${ts}.md`;
@@ -165,6 +172,7 @@ function notifyLabel(mode: Mode): string {
 
 export default function (pi: ExtensionAPI) {
   let currentMode: Mode = "default";
+  let touchedPlanFiles: string[] = [];
   const config = resolveConfig(process.cwd());
 
   pi.registerShortcut(config.shortcut, {
@@ -190,13 +198,16 @@ export default function (pi: ExtensionAPI) {
   // ── System prompt injection ────────────────────────────────
 
   pi.on("before_agent_start", async (event, _ctx) => {
+    touchedPlanFiles = [];
+
     if (currentMode === "plan") {
       const injection =
-        `\n\n[PLAN MODE ACTIVE] You are in PLAN MODE. The write and edit tools are DISABLED. bash is restricted to read-only commands.` +
+        `\n\n[PLAN MODE ACTIVE] You are in PLAN MODE. bash is restricted to read-only commands.` +
         `\n- Read files, search the codebase, and analyze thoroughly.` +
+        `\n- You may use write and edit ONLY for .pi/plans/*.md files to draft or refine your plan.` +
         `\n- Then produce a structured implementation plan as your final response.` +
         `\n- Include: Summary, Files to Modify, Files to Create, Implementation Steps, Risks, Testing Strategy.` +
-        `\n- Do NOT use write or edit. They are blocked.`;
+        `\n- Do NOT use write or edit on any other files. Those are blocked.`;
       return { systemPrompt: event.systemPrompt + injection };
     }
 
@@ -215,9 +226,14 @@ export default function (pi: ExtensionAPI) {
     // PLAN MODE — block writes/edits; gate bash to read-only
     if (currentMode === "plan") {
       if (event.toolName === "write" || event.toolName === "edit") {
+        const filePath = (event.input as any).file_path || (event.input as any).path || "unknown";
+        if (isPlanFilePath(filePath, ctx.cwd)) {
+          touchedPlanFiles.push(path.resolve(ctx.cwd, filePath));
+          return {};
+        }
         return {
           block: true,
-          reason: `[PLAN MODE] ${event.toolName} is disabled. Describe this change in your plan text instead.`,
+          reason: `[PLAN MODE] ${event.toolName} is disabled. You may only use it for .pi/plans/*.md files.`,
         };
       }
       if (event.toolName === "bash") {
@@ -273,33 +289,39 @@ export default function (pi: ExtensionAPI) {
     if (currentMode !== "plan") return;
     if (!ctx.hasUI) return;
 
-    const messages = event.messages;
-    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-    if (!lastAssistant) return;
+    let planFilePath: string;
 
-    const planText = lastAssistant.content
-      .filter((c): c is { type: "text"; text: string } => c.type === "text")
-      .map((c) => c.text)
-      .join("\n")
-      .trim();
+    if (touchedPlanFiles.length > 0) {
+      planFilePath = touchedPlanFiles[touchedPlanFiles.length - 1];
+      ctx.ui.notify(`Plan file ready: ${path.relative(ctx.cwd, planFilePath)}`, "success");
+    } else {
+      const messages = event.messages;
+      const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+      if (!lastAssistant) return;
 
-    if (!planText) return;
+      const planText = lastAssistant.content
+        .filter((c): c is { type: "text"; text: string } => c.type === "text")
+        .map((c) => c.text)
+        .join("\n")
+        .trim();
 
-    const plansDir = path.join(ctx.cwd, ".pi", "plans");
-    fs.mkdirSync(plansDir, { recursive: true });
+      if (!planText) return;
 
-    const filename = generatePlanFilename();
-    const filepath = path.join(plansDir, filename);
+      const plansDir = path.join(ctx.cwd, ".pi", "plans");
+      fs.mkdirSync(plansDir, { recursive: true });
 
-    const meta = {
-      created: new Date().toISOString(),
-      mode: "plan",
-      session: ctx.sessionManager.getSessionFile() || "ephemeral",
-    };
+      const filename = generatePlanFilename();
+      planFilePath = path.join(plansDir, filename);
 
-    fs.writeFileSync(filepath, buildPlanFile(planText, meta), "utf-8");
+      const meta = {
+        created: new Date().toISOString(),
+        mode: "plan",
+        session: ctx.sessionManager.getSessionFile() || "ephemeral",
+      };
 
-    ctx.ui.notify(`Plan saved to ${path.relative(ctx.cwd, filepath)}`, "success");
+      fs.writeFileSync(planFilePath, buildPlanFile(planText, meta), "utf-8");
+      ctx.ui.notify(`Plan saved to ${path.relative(ctx.cwd, planFilePath)}`, "success");
+    }
 
     // Approval dialog
     const choice = await ctx.ui.select("The plan is ready to execute. Would you like to proceed?", [
@@ -313,7 +335,7 @@ export default function (pi: ExtensionAPI) {
       persistMode(pi, "acceptEdits");
       ctx.ui.setStatus("pledit", statusLabel(currentMode));
       pi.sendUserMessage(
-        `Implement the approved plan from ${filepath}. Execute all steps without stopping for confirmation.`,
+        `Implement the approved plan from ${planFilePath}. Execute all steps without stopping for confirmation.`,
         { deliverAs: "followUp" }
       );
     } else if (choice === "2. Manually approve edits") {
@@ -321,7 +343,7 @@ export default function (pi: ExtensionAPI) {
       persistMode(pi, "default");
       ctx.ui.setStatus("pledit", statusLabel(currentMode));
       pi.sendUserMessage(
-        `Implement the approved plan from ${filepath}. Ask for confirmation before each file edit or shell command.`,
+        `Implement the approved plan from ${planFilePath}. Ask for confirmation before each file edit or shell command.`,
         { deliverAs: "followUp" }
       );
     } else {

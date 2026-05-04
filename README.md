@@ -144,7 +144,8 @@ Default `unsafePatterns`: `rm -rf`, `sudo`, `chmod 777`, `docker system prune`.
 
 ### Plan Mode (`∥∥ plan mode`)
 
-- **Blocked:** `write`, `edit`
+- **Blocked:** `write`, `edit` on all files **except** `.pi/plans/*.md`
+- **Allowed:** `write`, `edit` for `.pi/plans/*.md` files (to draft or refine the plan)
 - **Allowed bash (read-only):** `git status`, `git diff`, `git log`, `git branch`, `git stash list`, `git show`, `ls`, `find`, `grep`, `rg`, `cat`, `head`, `tail`, `echo`, `pwd`, `which`, `wc`
 - **Blocked bash:** everything else (`mkdir`, `touch`, `mv`, `npm run`, etc.)
 - **Allowed tools:** `read`, `glob`, `grep`, `find`, `ls` — all read-only tools
