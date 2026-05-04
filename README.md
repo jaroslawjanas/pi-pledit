@@ -12,7 +12,7 @@ Cycle between **Plan**, **Accept Edits**, and **Default** modes to control how a
 - **⏵⏵ Accept Edits** — Auto-approves file edits and safe filesystem commands. Fast execution without interruption.
 - **Default** — Prompts before every file edit or shell command. Full manual control.
 - **Persistent** — Mode survives session resume, reload, and restarts.
-- **Approval workflow** — After a plan completes, a dialog lets you choose: auto-execute, manual review, or keep planning.
+- **Approval workflow** — When you're done planning, press your shortcut to leave plan mode. You'll be asked how you'd like to execute the saved plan.
 
 ---
 
@@ -67,21 +67,21 @@ The current mode appears in the status bar:
 
 ### After a plan completes
 
-When you finish a plan, a dialog appears:
+When you finish planning, press your shortcut (**F6** by default) to leave plan mode. A dialog appears:
 
 ```
-The plan is ready to execute. Would you like to proceed?
+You are leaving plan mode. How would you like to proceed?
 
-  1. Auto-accept edits
-  2. Manually approve edits
-  3. Provide further feedback
+  1. Auto-execute the plan
+  2. Execute with manual approval
+  3. Just exit plan mode
 ```
 
 | Choice | Result |
 |--------|--------|
-| **Auto-accept edits** | Switches to Accept Edits mode and executes the plan |
-| **Manually approve edits** | Switches to Default mode and asks before each change |
-| **Provide further feedback** | Stays in Plan mode; type your feedback and continue |
+| **Auto-execute the plan** | Switches to Accept Edits mode and executes the plan |
+| **Execute with manual approval** | Switches to Default mode and asks before each change |
+| **Just exit plan mode** | Switches to Default mode without executing |
 
 ---
 

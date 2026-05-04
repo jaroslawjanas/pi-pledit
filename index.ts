@@ -173,12 +173,50 @@ function notifyLabel(mode: Mode): string {
 export default function (pi: ExtensionAPI) {
   let currentMode: Mode = "default";
   let touchedPlanFiles: string[] = [];
+  let lastPlanFilePath: string | undefined;
   const config = resolveConfig(process.cwd());
 
   pi.registerShortcut(config.shortcut, {
     description: "Cycle permission modes",
     handler: async (shortcutCtx) => {
       const next = MODE_CYCLE[(MODE_CYCLE.indexOf(currentMode) + 1) % MODE_CYCLE.length];
+
+      // When leaving plan mode, offer execution options if a plan file exists
+      if (currentMode === "plan" && next === "default" && lastPlanFilePath && shortcutCtx.hasUI) {
+        const choice = await shortcutCtx.ui.select("You are leaving plan mode. How would you like to proceed?", [
+          "1. Auto-execute the plan",
+          "2. Execute with manual approval",
+          "3. Just exit plan mode",
+        ]);
+
+        if (choice === "1. Auto-execute the plan") {
+          currentMode = "acceptEdits";
+          persistMode(pi, "acceptEdits");
+          shortcutCtx.ui.setStatus("pledit", statusLabel(currentMode));
+          shortcutCtx.ui.notify(notifyLabel(currentMode), "info");
+          pi.sendUserMessage(
+            `Implement the approved plan from ${lastPlanFilePath}. Execute all steps without stopping for confirmation.`,
+            { deliverAs: "followUp" }
+          );
+          lastPlanFilePath = undefined;
+          return;
+        } else if (choice === "2. Execute with manual approval") {
+          currentMode = "default";
+          persistMode(pi, "default");
+          shortcutCtx.ui.setStatus("pledit", statusLabel(currentMode));
+          shortcutCtx.ui.notify(notifyLabel(currentMode), "info");
+          pi.sendUserMessage(
+            `Implement the approved plan from ${lastPlanFilePath}. Ask for confirmation before each file edit or shell command.`,
+            { deliverAs: "followUp" }
+          );
+          lastPlanFilePath = undefined;
+          return;
+        } else {
+          // "3. Just exit plan mode" or dismissed — cycle to default silently
+          lastPlanFilePath = undefined;
+        }
+      }
+
       currentMode = next;
       persistMode(pi, next);
       if (shortcutCtx.hasUI) {
@@ -199,6 +237,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("before_agent_start", async (event, _ctx) => {
     touchedPlanFiles = [];
+    lastPlanFilePath = undefined;
 
     if (currentMode === "plan") {
       const injection =
@@ -289,66 +328,37 @@ export default function (pi: ExtensionAPI) {
     if (currentMode !== "plan") return;
     if (!ctx.hasUI) return;
 
-    let planFilePath: string;
-
     if (touchedPlanFiles.length > 0) {
-      planFilePath = touchedPlanFiles[touchedPlanFiles.length - 1];
-      ctx.ui.notify(`Plan file ready: ${path.relative(ctx.cwd, planFilePath)}`, "success");
-    } else {
-      const messages = event.messages;
-      const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-      if (!lastAssistant) return;
-
-      const planText = lastAssistant.content
-        .filter((c): c is { type: "text"; text: string } => c.type === "text")
-        .map((c) => c.text)
-        .join("\n")
-        .trim();
-
-      if (!planText) return;
-
-      const plansDir = path.join(ctx.cwd, ".pi", "plans");
-      fs.mkdirSync(plansDir, { recursive: true });
-
-      const filename = generatePlanFilename();
-      planFilePath = path.join(plansDir, filename);
-
-      const meta = {
-        created: new Date().toISOString(),
-        mode: "plan",
-        session: ctx.sessionManager.getSessionFile() || "ephemeral",
-      };
-
-      fs.writeFileSync(planFilePath, buildPlanFile(planText, meta), "utf-8");
-      ctx.ui.notify(`Plan saved to ${path.relative(ctx.cwd, planFilePath)}`, "success");
-    }
-
-    // Approval dialog
-    const choice = await ctx.ui.select("The plan is ready to execute. Would you like to proceed?", [
-      "1. Auto-accept edits",
-      "2. Manually approve edits",
-      "3. Provide further feedback",
-    ]);
-
-    if (choice === "1. Auto-accept edits") {
-      currentMode = "acceptEdits";
-      persistMode(pi, "acceptEdits");
-      ctx.ui.setStatus("pledit", statusLabel(currentMode));
-      pi.sendUserMessage(
-        `Implement the approved plan from ${planFilePath}. Execute all steps without stopping for confirmation.`,
-        { deliverAs: "followUp" }
-      );
-    } else if (choice === "2. Manually approve edits") {
-      currentMode = "default";
-      persistMode(pi, "default");
-      ctx.ui.setStatus("pledit", statusLabel(currentMode));
-      pi.sendUserMessage(
-        `Implement the approved plan from ${planFilePath}. Ask for confirmation before each file edit or shell command.`,
-        { deliverAs: "followUp" }
-      );
-    } else {
-      // "3. Provide further feedback" or dialog dismissed — remain in plan mode
+      lastPlanFilePath = touchedPlanFiles[touchedPlanFiles.length - 1];
+      ctx.ui.notify(`Plan file ready: ${path.relative(ctx.cwd, lastPlanFilePath)}`, "success");
       return;
     }
+
+    const messages = event.messages;
+    const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistant) return;
+
+    const planText = lastAssistant.content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("\n")
+      .trim();
+
+    if (!planText) return;
+
+    const plansDir = path.join(ctx.cwd, ".pi", "plans");
+    fs.mkdirSync(plansDir, { recursive: true });
+
+    const filename = generatePlanFilename();
+    lastPlanFilePath = path.join(plansDir, filename);
+
+    const meta = {
+      created: new Date().toISOString(),
+      mode: "plan",
+      session: ctx.sessionManager.getSessionFile() || "ephemeral",
+    };
+
+    fs.writeFileSync(lastPlanFilePath, buildPlanFile(planText, meta), "utf-8");
+    ctx.ui.notify(`Plan saved to ${path.relative(ctx.cwd, lastPlanFilePath)}`, "success");
   });
 }
