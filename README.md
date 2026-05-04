@@ -147,7 +147,8 @@ Default `unsafePatterns`: `rm -rf`, `sudo`, `chmod 777`, `docker system prune`.
 - **Blocked:** `write`, `edit` on all files **except** `.pi/plans/*.md`
 - **Allowed:** `write`, `edit` for `.pi/plans/*.md` files (to draft or refine the plan)
 - **Allowed bash (read-only):** `git status`, `git diff`, `git log`, `git branch`, `git stash list`, `git show`, `ls`, `find`, `grep`, `rg`, `cat`, `head`, `tail`, `echo`, `pwd`, `which`, `wc`
-- **Blocked bash:** everything else (`mkdir`, `touch`, `mv`, `npm run`, etc.)
+- **Unsafe bash:** blocked (`rm -rf`, `sudo`, `chmod 777`, `docker system prune`)
+- **Other bash:** prompted for confirmation (e.g. `mkdir`, `touch`, `npm run`, `cd`)
 - **Allowed tools:** `read`, `glob`, `grep`, `find`, `ls` — all read-only tools
 - The model is instructed to produce a structured plan as its final response
 - Plans are saved to `.pi/plans/plan-YYYY-MM-DDTHH-mm-ss.md` with YAML frontmatter

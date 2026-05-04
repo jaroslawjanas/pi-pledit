@@ -277,12 +277,20 @@ export default function (pi: ExtensionAPI) {
       }
       if (event.toolName === "bash") {
         const cmd = (event.input as { command: string }).command;
-        if (!isReadonlyBash(cmd, config)) {
+        const trimmed = stripBashWrappers(cmd);
+
+        if (isUnsafe(trimmed, config.unsafePatterns)) {
           return {
             block: true,
-            reason: `[PLAN MODE] Only read-only bash commands are allowed.`,
+            reason: `[PLAN MODE] Command blocked by safety policy.`,
           };
         }
+        if (isReadonlyBash(cmd, config)) {
+          return {};
+        }
+        if (!ctx.hasUI) return {};
+        const ok = await ctx.ui.confirm("Confirm command", `Allow in plan mode: ${cmd}?`);
+        if (!ok) return { block: true, reason: "Denied by user" };
       }
       return {}; // allow read, glob, grep, ls, and safe bash
     }
