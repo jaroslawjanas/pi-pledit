@@ -21,14 +21,20 @@ Cycle between **Plan**, **Accept Edits**, and **Default** modes to control how a
 ### As a Pi Package (recommended)
 
 ```bash
-pi install git:github.com/<your-username>/pi-pledit
+pi install npm:pi-pledit
+```
+
+Or via GitHub:
+
+```bash
+pi install git:github.com/jaroslawjanas/pi-pledit
 ```
 
 Or add to your Pi `settings.json`:
 
 ```json
 {
-  "packages": ["git:github.com/<your-username>/pi-pledit"]
+  "packages": ["npm:pi-pledit"]
 }
 ```
 
