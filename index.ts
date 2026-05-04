@@ -107,10 +107,17 @@ function isUnsafe(command: string, patterns: string[]): boolean {
   return patterns.some((p) => trimmed.includes(p));
 }
 
+function splitCompoundCommand(command: string): string[] {
+  return command.split(/&&|\|\||;|\|/).map((s) => s.trim()).filter(Boolean);
+}
+
 function isReadonlyBash(command: string, config: Required<PleditConfig>): boolean {
   if (isUnsafe(command, config.unsafePatterns)) return false;
-  const trimmed = stripBashWrappers(command);
-  return config.readonlyBash.some((p) => trimmed.startsWith(p));
+  const parts = splitCompoundCommand(command);
+  return parts.every((part) => {
+    const trimmed = stripBashWrappers(part);
+    return trimmed.startsWith("cd ") || config.readonlyBash.some((p) => trimmed.startsWith(p));
+  });
 }
 
 function isSafeBash(command: string, config: Required<PleditConfig>): boolean {
