@@ -171,12 +171,6 @@ function statusLabel(mode: Mode): string {
   return "";
 }
 
-function notifyLabel(mode: Mode): string {
-  if (mode === "plan") return "Plan mode — read only";
-  if (mode === "acceptEdits") return "Yolo mode — edits auto-approved";
-  return "Default mode — prompts before changes";
-}
-
 export default function (pi: ExtensionAPI) {
   let currentMode: Mode = "default";
   let touchedPlanFiles: string[] = [];
@@ -200,7 +194,6 @@ export default function (pi: ExtensionAPI) {
           currentMode = "acceptEdits";
           persistMode(pi, "acceptEdits");
           shortcutCtx.ui.setStatus("pledit", statusLabel(currentMode));
-          shortcutCtx.ui.notify(notifyLabel(currentMode), "info");
           pi.sendUserMessage(
             `Implement the approved plan from ${lastPlanFilePath}. Execute all steps without stopping for confirmation.`,
             { deliverAs: "followUp" }
@@ -211,7 +204,6 @@ export default function (pi: ExtensionAPI) {
           currentMode = "default";
           persistMode(pi, "default");
           shortcutCtx.ui.setStatus("pledit", statusLabel(currentMode));
-          shortcutCtx.ui.notify(notifyLabel(currentMode), "info");
           pi.sendUserMessage(
             `Implement the approved plan from ${lastPlanFilePath}. Ask for confirmation before each file edit or shell command.`,
             { deliverAs: "followUp" }
@@ -228,7 +220,6 @@ export default function (pi: ExtensionAPI) {
       persistMode(pi, next);
       if (shortcutCtx.hasUI) {
         shortcutCtx.ui.setStatus("pledit", statusLabel(currentMode));
-        shortcutCtx.ui.notify(notifyLabel(currentMode), "info");
       }
     },
   });
